@@ -15,7 +15,7 @@
 */
 
 // Constructor
-Node::Node(double input_in, vec weights_in) {
+Node::Node(double input_in, xtens weights_in) {
   input = input_in;
   weights = weights_in;
 }
@@ -28,6 +28,11 @@ double Node::get_input() {
 // Get weight for ith connection
 double Node::get_weight(int i) {
   return weights(i);
+}
+
+// Get all weights that a Node maintains
+xtens Node::get_all_weights() {
+  return weights;
 }
 
 // Changes class param input to that provided
