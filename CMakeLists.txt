@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 
-PROJECT(mnist_example)
+PROJECT(DeepLearning)
 
 # find xtensor package
 find_package(xtl QUIET)
@@ -32,22 +32,35 @@ if (NOT xtensor_FOUND)
 endif()
 
 
-# Tests xcontainer
-add_executable(xtens_of_xtens source/DNN/building_xtensors_of_xtensors.cxx)
-target_link_libraries(xtens_of_xtens xtensor)
-
 
 # Compiles executable for importing data test
-add_executable(mnist_example source/DataReader/main.cpp)
-target_compile_features(mnist_example PRIVATE cxx_range_for)
+#add_executable(mnist_example source/DataReader/main.cpp)
+#target_compile_features(mnist_example PRIVATE cxx_range_for)
+###target_compile_definitions(mnist_example PRIVATE MNIST_DATA_LOCATION="${MNIST_DATA_DIR}")
+#target_compile_definitions(mnist_example PRIVATE MNIST_DATA_LOCATION="/home/jae1018/Proj2/MNIST_DeepLearning/data_set")
+
+
+# Include direcs for header files
+include_directories(include)
 
 
 # Create DNN exec
-add_executable(DNN_exec source/DNN/Node_Manager.cxx)
-target_link_libraries(DNN_exec xtensor)
+#add_executable(DNN_exec source/DNN/DNN.cxx)
+add_library(DNN_lib source/DNN/DNN.cxx source/DNN/Node.cxx)
+target_link_libraries(DNN_lib xtensor)
+add_executable(DNN_exec source/DNN/DNN_Main.cxx)
+target_link_libraries(DNN_exec DNN_lib)
 
 
-# Pass MNIST data directory to main.cpp
-#target_compile_definitions(mnist_example PRIVATE MNIST_DATA_LOCATION="${MNIST_DATA_DIR}")
-target_compile_definitions(mnist_example PRIVATE MNIST_DATA_LOCATION="/home/jae1018/Proj2/MNIST_DeepLearning/data_set")
+# Create Node main exec
+#add_executable(Node_main source/DNN/Node_older.cxx)
+#target_link_libraries(Node_main xtensor)
 
+
+# create better Node main exec
+##add_library(node_lib source/DNN/Node.cxx)
+##link_libraries(node_lib)
+add_executable(Node_main_alt source/DNN/Node_main.cxx)
+#target_link_libraries(Node_main_alt xtensor)
+##target_link_libraries(Node_main_alt source/DNN/Node.cxx)
+target_link_libraries(Node_main_alt DNN_lib)
