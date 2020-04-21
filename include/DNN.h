@@ -6,6 +6,7 @@
 #include "xtensor/xview.hpp"
 #include <iostream>
 #include <vector>
+#include <cmath>
 
 // Define vec to replace xtensor<double,1>
 using xtens = xt::xtensor<double,1>;
@@ -30,6 +31,7 @@ class Node {
 class DNN {
   private:
     std::vector<Node> layers[5];
+    std::vector<Node> biases;
     // Getters & Setters
     void set_input(int layer_num, int node_num, double new_input);
     double get_input(int layer_num, int node_num);
@@ -40,10 +42,10 @@ class DNN {
     double activ_func(double val_in);
     double calc_preactiv(int layer_num, int node_num);
     void forward_propogate();
-    void initialize_nodes();
+    void initialize_network();
   public:
     const int num_layers = 5;
-    const int layer_sizes[5] = {8,6,4,2,1};
+    const int layer_sizes[5] = {10,8,6,4,2};
     const double univ_starting_weight = .5;
     DNN();
     void print_all_inputs();
