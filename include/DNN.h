@@ -44,8 +44,9 @@ class DNN {
     void forward_propogate();
     void initialize_network();
   public:
-    const int num_layers = 5;
-    const int layer_sizes[5] = {10,8,6,4,2};
+    const int NUM_LAYERS = 5;
+    const int LAYER_SIZES[5] = {10,8,6,4,2};
+    //const int layer_sizes[5] = {800,100,50,25,10};
     const double univ_starting_weight = .5;
     DNN();
     void print_all_inputs();

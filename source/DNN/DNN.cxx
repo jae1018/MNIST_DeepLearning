@@ -6,6 +6,24 @@
 * of -1 to the set_input and set_weight functions.
 *
 *
+*
+* STRUCTURE OF NETWORK:
+*
+* *** Input Layer (0) ***          *** Layer 1 ***
+* ----------------------       -----------------------|
+* | input has  | input |       | layer 1 has| Layer 1 |
+* | no weights | nodes |       | weights    | Nodes   |
+* |            |       | ----\ | for nodes  |         | -----\ ... until final
+* |------------|-------| ----/ | from layer |         | -----/ ... layer.
+* | and no bias nodes  |       | 0 to layer |         |
+* | either             |       | 1 (called  |         |
+* ---------------------        | w^(L=1)    |         |
+*                              ------------------------
+*                              | biases for each node |
+*                              | activation in layer 1|
+*                              | (called b^(L=1))     |
+*                              ------------------------
+*
 * @author: James "Andy" Edmond
 * @date: April 20, 2020 (420lol)
 */
@@ -19,7 +37,7 @@ void DNN::set_input(int layer_num, int node_num, double new_input) {
   if (node_num != -1) {
     (  (  layers[layer_num]  ).at(node_num)  ).set_input(new_input);
   } else {
-    (  biases.at(layer_num)  ).set_input(new_input);
+    (  biases.at(layer_num-1)  ).set_input(new_input);
   }
 }
 
@@ -28,7 +46,7 @@ double DNN::get_input(int layer_num, int node_num) {
   if (node_num != -1) {
     return (  (  layers[layer_num]  ).at(node_num)  ).get_input();
   } else {
-    return (  biases.at(layer_num)  ).get_input();
+    return (  biases.at(layer_num-1)  ).get_input(); // -1 b/c no bias in input
   }
 }
 
@@ -37,7 +55,7 @@ double DNN::get_weight(int layer_num, int node_num, int weight_num) {
   if (node_num != -1) {
     return (  (  layers[layer_num]  ).at(node_num)  ).get_weight(weight_num);
   } else {
-    return (  biases.at(layer_num)  ).get_weight(weight_num);
+    return (  biases.at(layer_num-1)  ).get_weight(weight_num);
   }
 }
 
@@ -46,7 +64,7 @@ xtens DNN::get_all_weights(int layer_num, int node_num) {
   if (node_num != -1) {
     return (  (  layers[layer_num]  ).at(node_num)  ).get_all_weights();
   } else {
-    return (  biases.at(layer_num)  ).get_all_weights();
+    return (  biases.at(layer_num-1)  ).get_all_weights();
   }
 }
 
@@ -60,29 +78,31 @@ void DNN::set_node_weight(int layer_num, int node_num, double new_weight) {
 
 // The activation function for the neural network
 double DNN::activ_func(double val)  {
-  return 1/(1 + exp(-val));  // %%%%%  fix me!!! %%%%%
+  return 1/(1 + exp(-val));
 }
 
 // Calculates the preactivation value for a node (the linear combination
 // that needs to be performed i.e. x1*w1 + x2*w2 + ...)
-// Note that data_layer describes the layer we're taking data *from* and
-// node_int describes the node eventually *receiving* the data in the
-// **next** layer! (so if data_layer = 0, then node_int is in layer = 1)
-double DNN::calc_preactiv(int data_layer,int node_int) {
+// Note that node_layer describes the layer data is going *to* and
+// node_int describes the node eventually receiving that data.
+// So all data comes from layer node_layer - 1
+double DNN::calc_preactiv(int node_layer,int node_int) {
   double val = 0;
-  for (int i = 0; i < layer_sizes[data_layer]; i++) {
-    val += get_input(data_layer,i) * get_weight(data_layer,i,node_int);
+  std::cout << get_all_weights(node_layer,node_int) << " *****\n";
+  std::cout << get_weight(node_layer,9,node_int) << " *****\n";
+  for (int i = 0; i < LAYER_SIZES[node_layer-1]; i++) {
+    val += get_input(node_layer-1,i) * get_weight(node_layer,i,node_int);
   }
-  val += get_input(data_layer,-1) * get_weight(data_layer,-1,node_int); 
+  //val += get_input(node_layer-1,-1) * get_weight(node_layer,-1,node_int);
   return val;
 }
 
 // Forward propogates data from input layer all the way to output layer
 void DNN::forward_propogate() {
-  for (int layer_num = 1; layer_num < num_layers; layer_num++) {
-    for (int node_num = 0; node_num < layer_sizes[layer_num]; node_num++) {
-      double preactiv_val = calc_preactiv(layer_num - 1,node_num);
-      set_input(layer_num, node_num, activ_func(preactiv_val));
+  for (int layer_num = 1; layer_num < NUM_LAYERS; layer_num++) {
+    for (int node_num = 0; node_num < LAYER_SIZES[layer_num]; node_num++) {
+      double preactiv_val = calc_preactiv(layer_num,node_num);
+      //set_input(layer_num, node_num, activ_func(preactiv_val));
     }
   }
 }
@@ -90,13 +110,13 @@ void DNN::forward_propogate() {
 // Starts nodes out from scratch (no prior weights saved to file imported here!!)
 void DNN::initialize_network() {
   // For each layer ...
-  for (int i = 0; i < num_layers; i++) {
+  for (int i = 0; i < NUM_LAYERS; i++) {
     // Make a node ...
-    for (int num_node = 0; num_node < layer_sizes[i]; num_node++)  {
+    for (int num_node = 0; num_node < LAYER_SIZES[i]; num_node++)  {
       // With weights for each connection to node in next layer ...
       xtens weights;
-      if (i < (num_layers - 1)) {  // no weights needed for output layer
-	weights = xt::empty<double>({layer_sizes[i+1]});
+      if (i > 0) {  // no weights needed for input layer
+	weights = xt::empty<double>({LAYER_SIZES[i-1]});
         weights.fill(univ_starting_weight);  // try RNG next time
       }
       // Then create the node and add it to the vector
@@ -104,8 +124,8 @@ void DNN::initialize_network() {
       (layers[i]).push_back(new_node);
     }
     // and don't forget to make a bias node for each non-output layer!
-    if ( i < (num_layers - 1)) {
-      xtens weights = xt::empty<double>({layer_sizes[i+1]});
+    if ( i > 0) {
+      xtens weights = xt::empty<double>({LAYER_SIZES[i]});
       weights.fill(univ_starting_weight);
       Node bias = Node(0.5,weights);
       biases.push_back(bias);
@@ -124,14 +144,14 @@ DNN::DNN() {
 // Prints the input for all nodes
 void DNN::print_all_inputs() {
   std::cout << "----- printing inputs -----\n";
-  for (int i = 0; i < num_layers; i++) {
+  for (int i = 0; i < NUM_LAYERS; i++) {
     std::cout << "*** Layer " << i + 1 << " ***\n";
     std::cout << "[ ";
-    for (int node_num = 0; node_num < layer_sizes[i]; node_num++) {
+    for (int node_num = 0; node_num < LAYER_SIZES[i]; node_num++) {
       std::cout << get_input(i,node_num) << " ";
     }
     std::cout << "]";
-    if (i < (num_layers - 1)) {
+    if (i > 0) {
       std::cout << " || Bias node input [ " << get_input(i,-1) << " ]";
     }
     std::cout << "\n\n";
@@ -141,9 +161,9 @@ void DNN::print_all_inputs() {
 // Prints all the weights for all nodes
 void DNN::print_all_weights() {
   std::cout << "----- printing weights -----\n";
-  for (int i = 0; i < num_layers; i++) {
+  for (int i = 0; i < NUM_LAYERS; i++) {
     std::cout << "*** Layer " << i + 1 << " ***\n";
-    for (int node_num = 0; node_num < layer_sizes[i]; node_num++) {
+    for (int node_num = 0; node_num < LAYER_SIZES[i]; node_num++) {
       std::cout << "Node " << node_num + 1 << " has the following weights:\n";
       xtens weights = get_all_weights(i,node_num);
       std::cout << "[ ";
@@ -152,7 +172,7 @@ void DNN::print_all_weights() {
       }
       std::cout << "]\n";
     }
-    if (i < (num_layers - 1)) {
+    if (i > 0) {
       std::cout << "Bias node has the following weights:\n";
       xtens weights = get_all_weights(i,-1);
       std::cout << "[ ";
@@ -168,5 +188,5 @@ void DNN::print_all_weights() {
 void DNN::compute_output() {
   std::cout << "----- forward propagating -----\n";
   forward_propogate();
-  std::cout << "Output is " << get_input(num_layers - 1,0) << "\n";
+  std::cout << "Output is " << get_input(NUM_LAYERS - 1, 0) << "\n";
 }
