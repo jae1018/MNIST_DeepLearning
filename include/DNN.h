@@ -48,7 +48,7 @@ inline double vdot(vec& vec_one, vec& vec_two) {
 class DNN {
   private:
     const int NUM_LAYERS = 5;
-    const int LAYER_SIZES[5] = {10, 8, 6, 4, 2};
+    const int LAYER_SIZES[5] = {20, 8, 6, 4, 2};
     const double LEARNING_RATE = 0.05;
     arr all_weights[4]; // dimens = num_layers - 1
     vec all_biases[4];  // dimens = num_layers - 1

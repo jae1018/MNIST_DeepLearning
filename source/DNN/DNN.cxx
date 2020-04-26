@@ -205,7 +205,7 @@ void DNN::backpropagate(vec& answers) {
 
   // Update weights and biases
   // across each layer ...
-  for (int i = 1; i < NUM_LAYERS - 1; i++) {
+  for (int i = 1; i < NUM_LAYERS; i++) {
     arr old_weights = get_weights(i);
     arr new_weights = xt::zeros<double>({ (old_weights.shape())[0], (old_weights.shape())[1] });
     vec old_biases = get_biases(i);
