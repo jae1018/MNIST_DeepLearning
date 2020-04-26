@@ -16,7 +16,7 @@ if (NOT xtl_FOUND)
     add_subdirectory(${xtl_SOURCE_DIR} ${xtl_BINARY_DIR} EXCLUDE_FROM_ALL)
   endif()
 endif()
-  
+
 find_package(xtensor QUIET)
 if (NOT xtensor_FOUND)
   include(FetchContent)
@@ -30,6 +30,20 @@ if (NOT xtensor_FOUND)
     add_subdirectory(${xtensor_SOURCE_DIR} ${xtensor_BINARY_DIR} EXCLUDE_FROM_ALL)
   endif()
 endif()
+
+# Get xtensor linalg package
+#find_package(xtensor-blas)
+#if (NOT xtensor-blas_FOUND)
+#  include(FetchContent)
+#  FetchContent_Declare(xtensor-blas
+#    GIT_REPOSITORY    https://github.com/xtensor-stack/xtensor-blas
+#    )
+#  FetchContent_GetProperties(xtensor-blas)
+#  if (NOT xtensor-blas_POPULATED)
+#    FetchContent_Populate(xtensor-blas)
+#    add_subdirectory(${xtensor-blas_SOURCE_DIR} ${xtensor-blas_BINARY_DIR} EXCLUDE_FROM_ALL)
+#  endif()
+#endif()
 
 
 

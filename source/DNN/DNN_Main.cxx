@@ -5,6 +5,8 @@ int main() {
   std::cout << "node_man made fhgsdgs?\n";
   //node_man.print_all_inputs();
   node_man.print_all_weights();
-  //node_man.compute_output();
+  node_man.compute_forward();
+  node_man.compute_backward();
+  node_man.print_all_weights();
 }
 
