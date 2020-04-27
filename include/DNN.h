@@ -9,6 +9,7 @@
 //#include <vector>
 #include <cmath>
 #include <cassert>
+#include <vector>
 
 // Define vec to replace xtensor<double,1>
 using vec = xt::xtensor<double,1>;
@@ -29,6 +30,45 @@ inline double vdot(vec& vec_one, vec& vec_two) {
   return val;
 }
 
+// --- uint8_t ==> int coverter ---
+
+// Takes a vector of type uint8_t and returns a vector of type int
+/**inline std::vector<int> make_int_vector(std::vector<uint8_t> vector_in) {
+  std::vector<int> int_vector(vector_in.size(),0);
+  for (int i = 0; i < vector_in.size(); i++) {
+    int_vector[i] = int( vector_in[i] );
+  }
+  return int_vector;
+}*/
+
+inline vec make_double_vector(std::vector<uint8_t> vector_in) {
+  vec out_vector = xt::zeros<double>({vector_in.size()});
+  for (int i = 0; i < vector_in.size(); i++) {
+    out_vector(i) = double( vector_in[i] );
+  }
+  return out_vector;
+}
+
+
+// Takes a vector of vectors (each with type uint8_t) and returns a vector of
+// vectors (each with type int)
+/**inline std::vector<std::vector<int>> make_int_vector(std::vector<std::vector<uint8_t>> vector_in) {
+  std::vector<std::vector<int>> int_vector(vector_in.size(),std::vector<int>());
+  for (int i = 0; i < vector_in.size(); i++) {
+    int_vector[i] = make_int_vector(  vector_in[i]  );
+  }
+  return int_vector;
+}*/
+
+inline xt::xtensor<vec,1> make_double_vector(std::vector<std::vector<uint8_t>> vector_in) {
+  xt::xtensor<vec,1> out_vector = xt::empty<vec>({vector_in.size()});
+  for (int i = 0; i < vector_in.size(); i++) {
+    out_vector(i) = make_double_vector(  vector_in[i]  );
+  }
+  return out_vector;
+}
+
+
 // --- Declarations ---
 // Node class
 /**class Node {
@@ -48,7 +88,8 @@ inline double vdot(vec& vec_one, vec& vec_two) {
 class DNN {
   private:
     const int NUM_LAYERS = 5;
-    const int LAYER_SIZES[5] = {20, 8, 6, 4, 2};
+    //const int LAYER_SIZES[5] = {20, 8, 6, 4, 2};
+    const int LAYER_SIZES[5] = {784, 100, 60, 30, 10};
     const double LEARNING_RATE = 0.05;
     arr all_weights[4]; // dimens = num_layers - 1
     vec all_biases[4];  // dimens = num_layers - 1
@@ -68,15 +109,15 @@ class DNN {
     double inv_activ_func(double val_in);
     double cost_func(double guess, double answer);
     double cost_func_deriv(double guess, double answer);
-    void forward_propogate();
+    void forward_propagate();
     void backpropagate(vec& answers);
     void initialize_weights(arr& weights);
     void initialize_biases(vec& biases);
-    void read_input();
     void initialize_network();
   public:
     DNN();
     //void print_all_inputs();
+    void train_network(xt::xtensor<vec,1> images_in, vec labels_in);
     void print_all_weights();
     void compute_forward();
     void compute_backward();

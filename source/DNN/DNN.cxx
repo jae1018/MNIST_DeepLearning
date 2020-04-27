@@ -31,7 +31,9 @@
 
 
 // ----- Getters & Setters -----
-
+// For all of these, layer_num is an int describing the index of what layer is being
+// considered. 0 <= layer_num <= (NUM_LAYERS - 1) always!
+// So if data for layer 4 (involving layers 1,2,3,4,5) is desired, then layer_num = 3.
 
 // Based on ref to weight matrix, get number of receiving nodes
 int DNN::get_num_recv_nodes(arr& weights) {
@@ -74,6 +76,7 @@ vec& DNN::get_biases(int layer_num) {
 
 
 // Sets the biases of the designated layer to the vec provided
+// Note that all_biases[0] --> Layer 2 biases and ..[1] --> Layer 3 biases, etc.
 void DNN::set_biases(int layer_num, vec& biases_in) {
   assert( (all_biases[layer_num - 1]).size() == biases_in.size() );
   for (int i = 0; i < biases_in.size(); i++) {
@@ -91,7 +94,7 @@ vec& DNN::get_activations(int layer_num) {
 
 // Sets the activations of the designated layer to the vec provided
 void DNN::set_activations(int layer_num, vec& activ_in) {
-  assert((all_activations[layer_num]).size() == activ_in.size());
+  assert( LAYER_SIZES[layer_num] == activ_in.size() );
   for (int i = 0; i < activ_in.size(); i++) {
     (all_activations[layer_num])(i) = activ_in(i);
   }
@@ -135,8 +138,8 @@ double DNN::cost_func_deriv(double guess, double answer) {
 }
 
 
-// Forward propogates data from input layer all the way to output layer
-void DNN::forward_propogate() {
+// Forward propagates data from input layer all the way to output layer
+void DNN::forward_propagate() {
   for (int layer_num = 1; layer_num < NUM_LAYERS; layer_num++) {
 
     // get data for calculations
@@ -165,8 +168,8 @@ void DNN::forward_propogate() {
 void DNN::backpropagate(vec& answers) {
 
   // Compute error of final layer
-  std::cout << "*** Computing error for last layer ***\n";
-  std::cout << "From answers = " << answers << " errors are determined\n";
+  //std::cout << "*** Computing error for last layer ***\n";
+  //std::cout << "From answers = " << answers << " errors are determined\n";
   int last_layer_index = NUM_LAYERS - 1;
   vec last_activs = get_activations(last_layer_index);
   vec error_vec = xt::zeros<double>({LAYER_SIZES[last_layer_index]});
@@ -174,7 +177,7 @@ void DNN::backpropagate(vec& answers) {
     double from_cost_deriv = cost_func_deriv(last_activs(i),answers(i));
     double from_activ_func_deriv = activ_func_deriv(inv_activ_func(last_activs(i)));
     error_vec(i) = from_cost_deriv * from_activ_func_deriv;
-    std::cout << "Node " << i << " has error " << error_vec(i) << "\n";
+    //std::cout << "Node " << i << " has error " << error_vec(i) << "\n";
   }
 
   // Start saving errors for updating later
@@ -184,21 +187,20 @@ void DNN::backpropagate(vec& answers) {
 
   // Compute errors from semi-final layer to input layer
   for (int i = last_layer_index - 1; i > 0; i--) {
-    std::cout << "\n*** Computing error for layer " << i + 1 << " ***\n";
-    //vec prev_errors = errors[i];
+    //std::cout << "\n*** Computing error for layer " << i + 1 << " ***\n";
     arr weights = get_weights(i + 1);
     int num_send_nodes = get_num_send_nodes(weights);
     vec upper_layer_activs = get_activations(i);
     vec lower_layer_errors = xt::zeros<double>({num_send_nodes});
     vec upper_layer_errors = errors[i];
-    std::cout << "upper_layer_errors = " << upper_layer_errors << "\n";
+    //std::cout << "upper_layer_errors = " << upper_layer_errors << "\n";
     // Compute error for individual neuron
     for (int q = 0; q < num_send_nodes; q++) {
       vec weight_slice = xt::row(weights,q);
       double weight_and_error_dot = vdot(weight_slice,upper_layer_errors);
       double from_cost_func_deriv = activ_func_deriv(  inv_activ_func(  upper_layer_activs(q)  )  );
       lower_layer_errors(q) = weight_and_error_dot * from_cost_func_deriv;
-      std::cout << "Node " << q << " has error " << lower_layer_errors(q) << "\n";
+      //std::cout << "Node " << q << " has error " << lower_layer_errors(q) << "\n";
     }
     errors[i - 1] = lower_layer_errors;
   }
@@ -271,14 +273,6 @@ void DNN::initialize_network() {
 }
 
 
-// In the future, this will take data from a file or maybe a prepared arr
-// For now, it just inits the input layer to non-zero stuff
-void DNN::read_input() {
-  for (int i = 0; i < (all_activations[0]).size(); i++) {
-    (all_activations[0])(i) = double(i)/10;
-  }
-}
-
 // ----- Public Constructor -----
 
 
@@ -289,6 +283,23 @@ DNN::DNN() {
 
 // ----- Public Functions -----
 
+
+// Trains the network over the dataset provided
+void DNN::train_network(xt::xtensor<vec,1> images_in, vec labels_in) {
+  assert( images_in.size() == labels_in.size() );
+  int max_iters = images_in.size();//100
+  for (int test_num = 0; test_num < max_iters; test_num++) {
+    std::cout << "On test " << test_num << "/" << max_iters << " ..." << std::endl;
+    set_activations(0,images_in(test_num));
+    forward_propagate();
+    // Make answer vector from label
+    vec answer = xt::empty<double>({10});
+    for (int q = 0; q < 10; q++) {
+      answer(q) = (labels_in(test_num) == q) ? 1 : 0;  // if index == digit, then 1; else 0
+    }
+    backpropagate(answer);
+  }
+}
 
 // Prints all the weights for all nodes
 void DNN::print_all_weights() {
@@ -313,9 +324,9 @@ void DNN::print_all_weights() {
 
 // Test of forward propogate
 void DNN::compute_forward() {
-  read_input();
+  //read_input();
   std::cout << "\n----- forward propagating -----\n";
-  forward_propogate();
+  forward_propagate();
   std::cout << "Output is " << get_activations(NUM_LAYERS - 1) << "\n";
 }
 

@@ -65,6 +65,8 @@ add_library(DNN_lib source/DNN/DNN.cxx)
 target_link_libraries(DNN_lib xtensor)
 add_executable(DNN_exec source/DNN/DNN_Main.cxx)
 target_link_libraries(DNN_exec DNN_lib)
+target_compile_features(DNN_exec PRIVATE cxx_range_for)
+target_compile_definitions(DNN_exec PRIVATE MNIST_DATA_LOCATION="/home/jae1018/Proj2/MNIST_DeepLearning/data_set")
 
 
 # Create Node main exec
