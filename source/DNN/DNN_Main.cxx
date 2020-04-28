@@ -3,7 +3,8 @@
 #include "DNN.h"
 
 int main() {
-  DNN node_man = DNN();
+
+  DNN node_man = DNN("/home/jae1018/Proj2/MNIST_DeepLearning/build/DNN_data");
   std::cout << "node_man made fhgsdgs?\n";
   //node_man.print_all_weights();
   //node_man.compute_forward();

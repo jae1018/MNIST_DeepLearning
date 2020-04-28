@@ -2,6 +2,30 @@ cmake_minimum_required(VERSION 3.0)
 
 PROJECT(DeepLearning)
 
+# Find GTest
+find_package(GTest)
+if (NOT GTEST_FOUND)
+  include(FetchContent)
+  FetchContent_Declare(googletest
+    GIT_REPOSITORY    https://github.com/google/googletest.git
+    GIT_TAG           release-1.8.0
+    )
+  #FetchContent_MakeAvailable(googletest)
+  FetchContent_GetProperties(googletest)
+  if (NOT googletest_POPULATED)
+    FetchContent_Populate(googletest)
+    add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR} EXCLUDE_FROM_ALL)
+  endif()
+  
+  add_library(GTest::GTest INTERFACE IMPORTED)
+  target_include_directories(GTest::GTest INTERFACE "${googletest_SOURCE_DIR}/googletest/include")
+  target_link_libraries(GTest::GTest INTERFACE gtest)
+  
+  add_library(GTest::Main INTERFACE IMPORTED)
+  target_link_libraries(GTest::Main INTERFACE gtest_main)
+endif()
+
+
 # find xtensor package
 find_package(xtl QUIET)
 if (NOT xtl_FOUND)
@@ -67,6 +91,16 @@ add_executable(DNN_exec source/DNN/DNN_Main.cxx)
 target_link_libraries(DNN_exec DNN_lib)
 target_compile_features(DNN_exec PRIVATE cxx_range_for)
 target_compile_definitions(DNN_exec PRIVATE MNIST_DATA_LOCATION="/home/jae1018/Proj2/MNIST_DeepLearning/data_set")
+
+
+# Testing ForwardProp
+add_executable(test_forw_prop source/DNN/test_forward_propagate.cxx)
+target_link_libraries(test_forw_prop DNN_lib GTest::GTest GTest::Main)
+
+
+# Testing BackwardProp
+add_executable(test_back_prop source/DNN/test_backpropagate.cxx)
+target_link_libraries(test_back_prop DNN_lib GTest::GTest GTest::Main)
 
 
 # Create Node main exec
