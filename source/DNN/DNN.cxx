@@ -67,30 +67,6 @@ double DNN::cost_func_deriv(double guess, double answer) {
 }
 
 
-// Forward propagates data from input layer all the way to output layer
-void DNN::forward_propagate(vec& input) {
-  set_activations(0,input);
-  for (int layer_num = 1; layer_num < NUM_LAYERS; layer_num++) {
-
-    // get data for calculations
-    vec prev_activ_data = get_activations(layer_num - 1);  // activ data for layer L - 1
-    vec next_activ_data = get_activations(layer_num);  // activ data for layer L
-    arr weights = get_weights(layer_num);  // weights between layers L - 1 and L
-    vec biases = get_biases(layer_num);  // biases for layer L
-    int num_recv = get_num_recv_nodes(weights);
-
-    // forward propagate to next layer
-    for (int recv_node = 0; recv_node < num_recv; recv_node++) {
-      vec weights_slice = xt::col(weights,recv_node);
-      double weighted_sum = vdot(weights_slice,prev_activ_data) + biases(recv_node);
-      next_activ_data(recv_node) = activ_func(weighted_sum);
-    }
-    set_activations(layer_num,next_activ_data);
-
-  }
-}
-
-
 // Calculate the cost associated with the accurary of the estimated answer
 // Return true if prediction is correct to within class constant TOLERANCE
 bool DNN::analyze_output(vec& answers) {
@@ -111,79 +87,11 @@ bool DNN::analyze_output(vec& answers) {
     cost += (1.0/2) * pow(answers(i) - last_activs(i),2);
     if (abs(answers(i) - last_activs(i)) > TOLERANCE) { return_val = false; }
   }
-  std::cout << "Test yields cost of " << cost << std::endl;
+  //std::cout << "Test yields cost of " << cost << std::endl;
   return return_val;
 }
 
 
-// Backward propagates based on correct_answer vec (which contains the correct answer to the
-// current trial). Starts by computing error associated with cost function for final layer
-// and propagates the error backward. After all error is determined, weights and biases
-// are updated.
-void DNN::backpropagate(vec& answers) {
-
-  // Compute error of final layer
-  //std::cout << "*** Computing error for last layer ***\n";
-  //std::cout << "From answers = " << answers << " errors are determined\n";
-  int last_layer_index = NUM_LAYERS - 1;
-  vec last_activs = get_activations(last_layer_index);
-  vec error_vec = xt::zeros<double>({LAYER_SIZES[last_layer_index]});
-  for (int i = 0; i < LAYER_SIZES[last_layer_index]; i++) {
-    double from_cost_deriv = cost_func_deriv(last_activs(i),answers(i));
-    double from_activ_func_deriv = activ_func_deriv(inv_activ_func(last_activs(i)));
-    error_vec(i) = from_cost_deriv * from_activ_func_deriv;
-    //std::cout << "Node " << i << " has error " << error_vec(i) << "\n";
-  }
-
-  // Start saving errors for updating later
-  // (only 4 vecs needed since no weights on input layer)
-  vec errors[NUM_LAYERS - 1];
-  errors[last_layer_index - 1] = error_vec;
-
-  // Compute errors from semi-final layer to input layer
-  for (int i = last_layer_index - 1; i > 0; i--) {
-    //std::cout << "\n*** Computing error for layer " << i + 1 << " ***\n";
-    arr weights = get_weights(i + 1);
-    int num_send_nodes = get_num_send_nodes(weights);
-    vec upper_layer_activs = get_activations(i);
-    vec lower_layer_errors = xt::zeros<double>({num_send_nodes});
-    vec upper_layer_errors = errors[i];
-    // Compute error for individual neuron
-    for (int q = 0; q < num_send_nodes; q++) {
-      vec weight_slice = xt::row(weights,q);
-      double weight_and_error_dot = vdot(weight_slice,upper_layer_errors);
-      double from_cost_func_deriv = activ_func_deriv(  inv_activ_func(  upper_layer_activs(q)  )  );
-      lower_layer_errors(q) = weight_and_error_dot * from_cost_func_deriv;
-      //std::cout << "Node " << q << " has error " << lower_layer_errors(q) << "\n";
-    }
-    errors[i - 1] = lower_layer_errors;
-  }
-
-  // Update weights and biases
-  // across each layer ...
-  for (int i = 1; i < NUM_LAYERS; i++) {
-    arr old_weights = get_weights(i);
-    arr new_weights = xt::zeros<double>({ (old_weights.shape())[0], (old_weights.shape())[1] });
-    vec old_biases = get_biases(i);
-    vec new_biases = xt::zeros<double>({old_biases.size()});
-    vec prev_layer_activs = get_activations(i - 1);
-    vec errors_for_layer = errors[i - 1]; // --> means errors for layer i
-    // ... and across each receiving node ...
-    for (int recv = 0; recv < get_num_recv_nodes(old_weights); recv++) {
-      // ... update the weights for each connection
-      for (int send = 0; send < get_num_send_nodes(old_weights); send++) {
-        double change = LEARNING_RATE * errors_for_layer(recv) * prev_layer_activs(send);
-        // should it be plus???
-        new_weights(send,recv) = old_weights(send,recv) - change;
-      }
-      // ... and update the bias for each receiving node
-      new_biases(recv) = old_biases(recv) - LEARNING_RATE * errors_for_layer(recv);
-    }
-    set_weights(i,new_weights);
-    set_biases(i,new_biases);
-  }
-
-}
 
 
 // Save all weight and bias data to files
@@ -191,11 +99,14 @@ void DNN::save_data() {
   // for each layer ...
   for (int i = 1; i < NUM_LAYERS; i++) {
     // save the weights
-    std::ofstream out_file_weights(data_folder_path + "weights_ " + std::to_string(i) + ".csv");
+    std::ofstream out_file_weights(data_folder_path + "weights_" + std::to_string(i) + ".csv");
     xt::dump_csv(out_file_weights, get_weights(i));
     // and the biases
+    // P.S. dump_csv requires 2d array input, so appending vector of all zeros..
     std::ofstream out_file_biases(data_folder_path + "biases_" + std::to_string(i) + ".csv");
-    xt::dump_csv(out_file_biases, get_biases(i));
+    vec biases = get_biases(i);
+    vec bullshit = xt::zeros<double>({biases.size()});
+    xt::dump_csv(out_file_biases, xt::stack( xt::xtuple(biases,bullshit) ));
   }
 }
 
@@ -206,8 +117,7 @@ void DNN::initialize_weights(arr& weights) {
   int num_send = get_num_send_nodes(weights);
   for (int recv = 0; recv < num_recv; recv++) {
     for (int send = 0; send < num_send; send++) {
-      //weights(send,recv) = double(recv*10 + send)/100;
-      weights(send,recv) = rand()/RAND_MAX;
+      weights(send,recv) = double(rand())/RAND_MAX;
     }
   }
 }
@@ -216,20 +126,20 @@ void DNN::initialize_weights(arr& weights) {
 // Fill up all entires in biases vec
 void DNN::initialize_biases(vec& biases) {
   for (int i = 0; i < biases.size(); i++) {
-    //biases(i) = double(i)/100;
-    biases(i) = rand()/RAND_MAX;
+    biases(i) = double(rand())/RAND_MAX;
   }
 }
 
 
 // Starts nodes out from scratch (no prior weights saved to file imported here!!)
 void DNN::initialize_network() {
-  // Init weights and biases (incorpoate file-checking for prev vals later!)
+  // For each layer, read weights and biases from file
+  srand(time(NULL));
   for (int i = 0; i < NUM_LAYERS-1; i++) {
     // Make weights matrix between adjacent layers and check
     // to see if they're already saved to files.
     std::ifstream read_data_weights;
-    read_data_weights.open(data_folder_path + "weights_" + std::to_string(i) + ".csv");
+    read_data_weights.open(data_folder_path + "weights_" + std::to_string(i+1) + ".csv");
     arr weights;
     if ( read_data_weights.good() ) {
       weights = xt::load_csv<double>(read_data_weights);
@@ -241,10 +151,13 @@ void DNN::initialize_network() {
     // Make biases vector for all non-input layers and check
     // to see if they're already saved to files.
     std::ifstream read_data_biases;
-    read_data_biases.open(data_folder_path + "biases_ " + std::to_string(i) + ".csv");
+    read_data_biases.open(data_folder_path + "biases_ " + std::to_string(i+1) + ".csv");
+    arr biases_to_trim_from_file;
     vec biases;
     if ( read_data_biases.good() ) {
-      biases = xt::load_csv<double>(read_data_biases);
+      biases_to_trim_from_file = xt::load_csv<double>(read_data_biases);
+      biases = xt::row(biases_to_trim_from_file,0);
+      std::cout << biases << std::endl;
     } else {
       biases = xt::empty<double>({LAYER_SIZES[i+1]});
       initialize_biases(biases);
@@ -357,19 +270,117 @@ xt::xtensor<int,1> DNN::get_layer_sizes() {
   return sizes;
 }
 
+// --- Non-trivial functions ---
+
+
+// Forward propagates data from input layer all the way to output layer
+void DNN::forward_propagate(vec& input) {
+  set_activations(0,input);
+  for (int layer_num = 1; layer_num < NUM_LAYERS; layer_num++) {
+
+    // get data for calculations
+    vec prev_activ_data = get_activations(layer_num - 1);  // activ data for layer L - 1
+    vec next_activ_data = get_activations(layer_num);  // activ data for layer L
+    arr weights = get_weights(layer_num);  // weights between layers L - 1 and L
+    vec biases = get_biases(layer_num);  // biases for layer L
+    int num_recv = get_num_recv_nodes(weights);
+
+    // forward propagate to next layer
+    for (int recv_node = 0; recv_node < num_recv; recv_node++) {
+      vec weights_slice = xt::col(weights,recv_node);
+      double weighted_sum = vdot(weights_slice,prev_activ_data) + biases(recv_node);
+      next_activ_data(recv_node) = activ_func(weighted_sum);
+    }
+    set_activations(layer_num,next_activ_data);
+
+  }
+}
+
+
+// Backward propagates based on correct_answer vec (which contains the correct answer to the
+// current trial). Starts by computing error associated with cost function for final layer
+// and propagates the error backward. After all error is determined, weights and biases
+// are updated.
+void DNN::backpropagate(vec& answers) {
+
+  // Compute error of final layer
+  //std::cout << "*** Computing error for last layer ***\n";
+  //std::cout << "From answers = " << answers << " errors are determined\n";
+  int last_layer_index = NUM_LAYERS - 1;
+  vec last_activs = get_activations(last_layer_index);
+  vec error_vec = xt::zeros<double>({LAYER_SIZES[last_layer_index]});
+  for (int i = 0; i < LAYER_SIZES[last_layer_index]; i++) {
+    double from_cost_deriv = cost_func_deriv(last_activs(i),answers(i));
+    double from_activ_func_deriv = activ_func_deriv(inv_activ_func(last_activs(i)));
+    error_vec(i) = from_cost_deriv * from_activ_func_deriv;
+    //std::cout << "Node " << i << " has error " << error_vec(i) << "\n";
+  }
+  // Start saving errors for updating later
+  // (only 4 vecs needed since no weights on input layer)
+  vec errors[NUM_LAYERS - 1];
+  errors[last_layer_index - 1] = error_vec;
+
+  // Compute errors from semi-final layer to input layer
+  for (int i = last_layer_index - 1; i > 0; i--) {
+    //std::cout << "\n*** Computing error for layer " << i + 1 << " ***\n";
+    arr weights = get_weights(i + 1);
+    int num_send_nodes = get_num_send_nodes(weights);
+    vec upper_layer_activs = get_activations(i);
+    vec lower_layer_errors = xt::zeros<double>({num_send_nodes});
+    vec upper_layer_errors = errors[i];
+    // Compute error for individual neuron
+    for (int q = 0; q < num_send_nodes; q++) {
+      vec weight_slice = xt::row(weights,q);
+      double weight_and_error_dot = vdot(weight_slice,upper_layer_errors);
+      double from_cost_func_deriv = activ_func_deriv(  inv_activ_func(  upper_layer_activs(q)  )  );
+      lower_layer_errors(q) = weight_and_error_dot * from_cost_func_deriv;
+      //std::cout << "Node " << q << " has error " << lower_layer_errors(q) << "\n";
+    }
+    errors[i - 1] = lower_layer_errors;
+  }
+
+  // Update weights and biases
+  // across each layer ...
+  for (int i = 1; i < NUM_LAYERS; i++) {
+    arr old_weights = get_weights(i);
+    arr new_weights = xt::zeros<double>({ (old_weights.shape())[0], (old_weights.shape())[1] });
+    vec old_biases = get_biases(i);
+    vec new_biases = xt::zeros<double>({old_biases.size()});
+    vec prev_layer_activs = get_activations(i - 1);
+    vec errors_for_layer = errors[i - 1]; // --> means errors for layer i
+    // ... and across each receiving node ...
+    for (int recv = 0; recv < get_num_recv_nodes(old_weights); recv++) {
+      // ... update the weights for each connection
+      for (int send = 0; send < get_num_send_nodes(old_weights); send++) {
+        double change = LEARNING_RATE * errors_for_layer(recv) * prev_layer_activs(send);
+        new_weights(send,recv) = old_weights(send,recv) - change;
+        /**if ( (i==4) and (send==0) ) {
+           std::cout << "for final node " << recv << " weight mod = " << change << "\n"
+               << " learn_rate = " << LEARNING_RATE << " error = "
+               << errors_for_layer(recv) << " prev_activ = "
+               << prev_layer_activs(send) << "\n";
+        }*/
+      }
+      // ... and update the bias for each receiving node
+      new_biases(recv) = old_biases(recv) - LEARNING_RATE * errors_for_layer(recv);
+    }
+    set_weights(i,new_weights);
+    set_biases(i,new_biases);
+  }
+
+}
+
 
 // Trains the network over the dataset provided
 void DNN::train_network(xt::xtensor<vec,1> images_in, vec labels_in) {
   assert( images_in.size() == labels_in.size() );
   int num_correct = 0;
 
-  int max_iters = 500;//images_in.size();//100
+  int max_iters = images_in.size();//1000
   for (int test_num = 0; test_num < max_iters; test_num++) {
     // If new epoch is reach, save data
-    if ( (test_num % EPOCH) == 0 ) { save_data(); }
+    if ( ((test_num + 1) % EPOCH) == 0 ) { save_data(); }
     // Then calculate as usual
-    std::cout << "On test " << test_num << "/" << max_iters << " ..." << std::endl;
-    //set_activations(0,images_in(test_num));
     forward_propagate(images_in(test_num));
     // Make answer vector from label
     vec answer = xt::empty<double>({10});
@@ -377,9 +388,13 @@ void DNN::train_network(xt::xtensor<vec,1> images_in, vec labels_in) {
       answer(q) = (labels_in(test_num) == q) ? 1 : 0;  // if index == digit, then 1; else 0
     }
     if ( analyze_output(answer) ) { num_correct++; }
-    std::cout << "For test num " << test_num << " ..." << std::endl
-              << "guess = " << get_activations(NUM_LAYERS-1) << std::endl
-              << "answer = " << answer << std::endl;
+    // Print guess and answer to terminal every now and again
+    if ( (test_num + 1) % 100 == 0 ) {
+      std::cout << "On test " << test_num + 1 << "/" << max_iters << " ..." << std::endl;
+      std::cout << "For test num " << test_num << " ..." << std::endl
+                << "guess = " << get_activations(NUM_LAYERS-1) << std::endl
+                << "answer = " << answer << std::endl;
+    }
     backpropagate(answer);
   }
   std::cout << "Accuracy = " << double(num_correct)/max_iters << std::endl;

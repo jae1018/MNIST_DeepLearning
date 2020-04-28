@@ -1,20 +1,16 @@
 #include <iostream>
 #include "mnist_reader.hpp"
+#include "mnist_utils.hpp"
 #include "DNN.h"
 
 int main() {
 
-  DNN node_man = DNN("/home/jae1018/Proj2/MNIST_DeepLearning/build/DNN_data");
-  std::cout << "node_man made fhgsdgs?\n";
-  //node_man.print_all_weights();
-  //node_man.compute_forward();
-  //node_man.compute_backward();
-  //node_man.print_all_weights();
+  DNN node_man = DNN("/home/jae1018/Proj2/MNIST_DeepLearning/build");
 
   // --- Data Reader stuff ---
 
   // MNIST_DATA_LOCATION set by MNIST cmake config
-  //std::cout << "MNIST data directory: " << MNIST_DATA_LOCATION << std::endl;
+  std::cout << "MNIST data directory: " << MNIST_DATA_LOCATION << std::endl;
 
   // Loads MNIST data
   // The original author uses a template:
@@ -34,23 +30,16 @@ int main() {
   //std::vector<std::vector<int>> images = make_int_vector(dataset.test_images);
   //std::vector<int> labels = make_int_vector(dataset.test_labels);
 
-  xt::xtensor<vec,1> images = make_double_vector(dataset.test_images);
-  vec labels = make_double_vector(dataset.test_labels);
+  // Test Size --> 10K     &&&     Training Size --> 60K
+  auto images_orig = dataset.training_images; //dataset.test_images;
+  auto labels_orig = dataset.training_labels;  //dataset.test_labels;
 
-  std::cout << "Each image has " << images(0).size() << " number of pixels." << std::endl;
+  xt::xtensor<vec,1> images = normalize(images_orig);
+  vec labels = make_double_vector(labels_orig);
+
+  std::cout << "***Each image has " << images(0).size() << " number of pixels." << std::endl;
 
   node_man.train_network(images,labels);
-
-  /**std::cout << "Nbr of training images = " << dataset.training_images.size() << std::endl;
-  std::cout << "Nbr of training labels = " << dataset.training_labels.size() << std::endl;
-  std::cout << "Nbr of test images = " << dataset.test_images.size() << std::endl;
-  std::cout << "Nbr of test labels = " << dataset.test_labels.size() << std::endl;*/
-
-  /**int max_size = 30;
-  for (int i = 0; i < max_size; i++) {
-    std::cout << "test image sample -> " << int(  (dataset.test_images[i])[0]  ) << std::endl;
-    std::cout << "test label sample -> " << int(dataset.test_labels[i]) << std::endl;
-  }*/
 
   return 0;
 }

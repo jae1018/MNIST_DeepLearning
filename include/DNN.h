@@ -5,6 +5,7 @@
 #include "xtensor/xio.hpp"
 #include "xtensor/xview.hpp"
 #include "xtensor/xcsv.hpp"
+#include "xtensor/xnpy.hpp"
 //#include "xtensor-blas/xlinalg.hpp"
 #include <istream>
 #include <fstream>
@@ -15,6 +16,7 @@
 #include <vector>
 #include <stdlib.h>
 #include <cstring>
+#include <time.h>
 
 // Define vec to replace xtensor<double,1>
 using vec = xt::xtensor<double,1>;
@@ -58,15 +60,7 @@ inline bool vecs_equal(vec& vec1, vec& vec2, double tol) {
 
 // --- uint8_t ==> int coverter ---
 
-// Takes a vector of type uint8_t and returns a vector of type int
-/**inline std::vector<int> make_int_vector(std::vector<uint8_t> vector_in) {
-  std::vector<int> int_vector(vector_in.size(),0);
-  for (int i = 0; i < vector_in.size(); i++) {
-    int_vector[i] = int( vector_in[i] );
-  }
-  return int_vector;
-}*/
-
+// Takes a vector of type uint8_t and returns vec
 inline vec make_double_vector(std::vector<uint8_t> vector_in) {
   vec out_vector = xt::zeros<double>({vector_in.size()});
   for (int i = 0; i < vector_in.size(); i++) {
@@ -76,22 +70,27 @@ inline vec make_double_vector(std::vector<uint8_t> vector_in) {
 }
 
 
-// Takes a vector of vectors (each with type uint8_t) and returns a vector of
-// vectors (each with type int)
-/**inline std::vector<std::vector<int>> make_int_vector(std::vector<std::vector<uint8_t>> vector_in) {
-  std::vector<std::vector<int>> int_vector(vector_in.size(),std::vector<int>());
-  for (int i = 0; i < vector_in.size(); i++) {
-    int_vector[i] = make_int_vector(  vector_in[i]  );
-  }
-  return int_vector;
-}*/
-
+// Takes a vector of vectors (each with type uint8_t) and returns a xtensor of
+// vecs
 inline xt::xtensor<vec,1> make_double_vector(std::vector<std::vector<uint8_t>> vector_in) {
   xt::xtensor<vec,1> out_vector = xt::empty<vec>({vector_in.size()});
   for (int i = 0; i < vector_in.size(); i++) {
     out_vector(i) = make_double_vector(  vector_in[i]  );
   }
   return out_vector;
+}
+
+// Normalize vector of vectors (each with type uint8_t) to xtensor of vecs
+inline xt::xtensor<vec,1> normalize(std::vector<std::vector<uint8_t>> data_in) {
+  xt::xtensor<vec,1> normed_data = xt::empty<vec>({data_in.size()});
+  for (int i = 0; i < data_in.size(); i++) {
+    vec single_image = xt::zeros<double>({data_in[i].size()});
+    for (int a = 0; a < data_in[i].size(); a++) {
+      single_image(a) = double(  (data_in[i])[a]  ) / 255; // 255 is max
+    }
+    normed_data(i) = single_image;
+  }
+  return normed_data;
 }
 
 
@@ -117,8 +116,9 @@ class DNN {
     std::string data_folder_path;  // <-- string reps the folder of saved weights/biases i.e. "/home/me/DNN_Data"
     const int NUM_LAYERS = 5;
     //const int LAYER_SIZES[5] = {5, 4, 3, 2, 2};
-    const int LAYER_SIZES[5] = {784, 100, 60, 30, 10};
-    const double LEARNING_RATE = 0.05;
+    //const int LAYER_SIZES[5] = {784, 100, 60, 30, 10};
+    const int LAYER_SIZES[5] = {784, 260, 87, 29, 10};  // [send]/[recv] = 3
+    const double LEARNING_RATE = 0.5;//0.05;
     const double TOLERANCE = 0.01;
     const int EPOCH = 500;  // <-- after this many tests, saved weight and bias data to files
     arr all_weights[4]; // dimens = num_layers - 1

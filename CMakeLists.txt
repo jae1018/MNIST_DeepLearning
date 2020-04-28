@@ -93,6 +93,11 @@ target_compile_features(DNN_exec PRIVATE cxx_range_for)
 target_compile_definitions(DNN_exec PRIVATE MNIST_DATA_LOCATION="/home/jae1018/Proj2/MNIST_DeepLearning/data_set")
 
 
+# Testing xtensor data-to-file abilities
+add_executable(xtens_dump source/DNN/test_xtensor_dump.cxx)
+target_link_libraries(xtens_dump DNN_lib)
+
+
 # Testing ForwardProp
 add_executable(test_forw_prop source/DNN/test_forward_propagate.cxx)
 target_link_libraries(test_forw_prop DNN_lib GTest::GTest GTest::Main)
