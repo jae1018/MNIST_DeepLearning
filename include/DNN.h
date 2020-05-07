@@ -37,6 +37,16 @@ inline double vdot(vec& vec_one, vec& vec_two) {
   return val;
 }
 
+
+// Computes avg of xtensor
+inline double compute_avg(vec& input_vec) {
+  double val = 0;
+  for (int i = 0; i < input_vec.size(); i++) {
+    val += input_vec(i);
+  }
+  return val / input_vec.size();
+}
+
 // Given a tolerance to compare doubles, see if two double arrs are equal
 inline bool arrs_equal(arr& arr1, arr& arr2, double tol) {
   assert( arr1.shape()[0] == arr2.shape()[0] );
@@ -66,6 +76,8 @@ inline vec make_double_vector(std::vector<uint8_t> vector_in) {
   for (int i = 0; i < vector_in.size(); i++) {
     out_vector(i) = double( vector_in[i] );
   }
+  // 0 produced 7
+  std::cout << " orig val " << int(vector_in[1]) << " became " << out_vector(1) << "\n";
   return out_vector;
 }
 
@@ -114,13 +126,16 @@ class DNN {
   private:
     // class params
     std::string data_folder_path;  // <-- string reps the folder of saved weights/biases i.e. "/home/me/DNN_Data"
-    const int NUM_LAYERS = 5;
-    //const int LAYER_SIZES[5] = {5, 4, 3, 2, 2};
-    //const int LAYER_SIZES[5] = {784, 100, 60, 30, 10};
-    const int LAYER_SIZES[5] = {784, 260, 87, 29, 10};  // [send]/[recv] = 3
-    const double LEARNING_RATE = 0.5;//0.05;
-    const double TOLERANCE = 0.01;
-    const int EPOCH = 500;  // <-- after this many tests, saved weight and bias data to files
+    //const int NUM_LAYERS = 5;
+    const int NUM_LAYERS = 4;
+    // found intersting rule-of-thumb formula for determining num of hidden nodes:
+    // num_hidden = sample_size/(a*(num_input + num_output)), 2 <= a <= 10
+    const int LAYER_SIZES[5] = {784, 20, 15, 10};
+    //const int LAYER_SIZES[5] = {784, 260, 87, 29, 10};  // [send]/[recv] = 3
+    const double LEARNING_RATE = 10.0;//0.05;
+    const double TOLERANCE = 0.1;
+    const int EPOCH = 5000;  // <-- after this many tests, saved weight and bias data to files
+    const int MINI_BATCH_SIZE = 30;
     arr all_weights[4]; // dimens = num_layers - 1
     vec all_biases[4];  // dimens = num_layers - 1
     vec all_activations[5]; // dimens = num_layers
@@ -130,6 +145,7 @@ class DNN {
     double inv_activ_func(double val_in);
     double cost_func(double guess, double answer);
     double cost_func_deriv(double guess, double answer);
+    vec compute_cost_gradient(vec& answer);
     void save_data();
     void initialize_weights(arr& weights);
     void initialize_biases(vec& biases);

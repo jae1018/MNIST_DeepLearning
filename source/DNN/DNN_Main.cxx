@@ -31,15 +31,37 @@ int main() {
   //std::vector<int> labels = make_int_vector(dataset.test_labels);
 
   // Test Size --> 10K     &&&     Training Size --> 60K
-  auto images_orig = dataset.training_images; //dataset.test_images;
-  auto labels_orig = dataset.training_labels;  //dataset.test_labels;
+  auto images_orig = dataset.test_images; //dataset.test_images;
+  auto labels_orig = dataset.test_labels;  //dataset.test_labels;
 
+  //xt::xtensor<vec,1> images = make_double_vector(images_orig);
   xt::xtensor<vec,1> images = normalize(images_orig);
   vec labels = make_double_vector(labels_orig);
 
-  std::cout << "***Each image has " << images(0).size() << " number of pixels." << std::endl;
+  std::cout << "*** Set size = " << labels_orig.size() << std::endl;
+  std::cout << "*** Each image has " << images(0).size() << " number of pixels." << std::endl;
 
-  node_man.train_network(images,labels);
+  // let's cheat here and give it the same example for a while
+  auto images_copy = images;
+  auto labels_copy = labels;
+  int skip = 100;
+  int index = 0;
+  for (int i = 0; i < labels.size(); i++) {
+    if ((i + 1) % skip == 0) { index++; }
+    images_copy(i) = images(index);
+    labels_copy(i) = labels(index);
+  }
+  /**
+  * index <-> digit
+  * 3,0
+  * 49,4
+  * 333,5
+  */
+
+  int num_train_sessions = 30;//5;
+  for (int i = 0; i < num_train_sessions; i++) {
+    node_man.train_network(images_copy,labels_copy);
+  }
 
   return 0;
 }
