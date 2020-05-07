@@ -107,34 +107,18 @@ inline xt::xtensor<vec,1> normalize(std::vector<std::vector<uint8_t>> data_in) {
 
 
 // --- Declarations ---
-// Node class
-/**class Node {
-  private:
-    double input;
-    xtens weights;
-  public:
-    Node(double input_in, xtens weights_in);
-    double get_input();
-    double get_weight(int i);
-    xtens get_all_weights();
-    void set_input(double new_input);
-    void set_weight(int index, double new_weight);
-};*/
-
 // DNN class
 class DNN {
   private:
     // class params
     std::string data_folder_path;  // <-- string reps the folder of saved weights/biases i.e. "/home/me/DNN_Data"
-    //const int NUM_LAYERS = 5;
     const int NUM_LAYERS = 4;
     // found intersting rule-of-thumb formula for determining num of hidden nodes:
     // num_hidden = sample_size/(a*(num_input + num_output)), 2 <= a <= 10
     const int LAYER_SIZES[5] = {784, 20, 15, 10};
-    //const int LAYER_SIZES[5] = {784, 260, 87, 29, 10};  // [send]/[recv] = 3
-    const double LEARNING_RATE = 10.0;//0.05;
+    const double LEARNING_RATE = 1.0;
     const double TOLERANCE = 0.1;
-    const int EPOCH = 5000;  // <-- after this many tests, saved weight and bias data to files
+    const int SAVE_NUM = 1000;  // <-- after this many tests, saved weight and bias data to files
     const int MINI_BATCH_SIZE = 30;
     arr all_weights[4]; // dimens = num_layers - 1
     vec all_biases[4];  // dimens = num_layers - 1
@@ -169,8 +153,6 @@ class DNN {
     void backpropagate(vec& answers);
     void train_network(xt::xtensor<vec,1> images_in, vec labels_in);
     void print_all_weights();
-    void compute_forward();
-    void compute_backward();
 };
 
 #endif //

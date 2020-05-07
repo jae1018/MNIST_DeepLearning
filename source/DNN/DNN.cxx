@@ -3,9 +3,10 @@
 #include <chrono>
 
 /**
-* Note: Bias nodes are modified by setting a node_int val
-* of -1 to the set_input and set_weight functions.
-*
+* (Supposed to) implement a deep neural network with the layers and nodes
+* specified in the header. This program hosts all the data processing for
+* the network except for input data preparation (which is handled by the
+* driver program DNN_Main.cxx).
 *
 *
 * STRUCTURE OF NETWORK:
@@ -128,16 +129,12 @@ void DNN::save_data() {
 void DNN::initialize_weights(arr& weights) {
   int num_recv = get_num_recv_nodes(weights);
   int num_send = get_num_send_nodes(weights);
-  // found idea on stack exchange.. set weights to within random interval [-q,q] where
-  // q = 1/sqrt(num_sending_nodes)
   for (int recv = 0; recv < num_recv; recv++) {
     for (int send = 0; send < num_send; send++) {
       double rand_num = double(rand())/RAND_MAX;
-      weights(send,recv) = (1/pow(num_send,0.5))*(2*rand_num - 1);  // -0.5 to make avg = 0
+      weights(send,recv) = (1/pow(num_send,0.5))*(2*rand_num - 1);
     }
   }
-  // been struggling with oversaturation, so maybe making everything really small help??
-  //weights.fill(0.01);
 }
 
 
@@ -302,7 +299,6 @@ void DNN::forward_propagate(vec& input) {
     // get data for calculations
     vec prev_activ_data = get_activations(layer_num - 1);  // activ data for layer L - 1
     vec next_activ_data = get_activations(layer_num);  // activ data for layer L
-    //std::cout << next_activ_data << std::endl;
     arr weights = get_weights(layer_num);  // weights between layers L - 1 and L
     vec biases = get_biases(layer_num);  // biases for layer L
     int num_recv = get_num_recv_nodes(weights);
@@ -334,11 +330,8 @@ void DNN::backpropagate(vec& avg_cost_grad) {
   for (int i = 0; i < LAYER_SIZES[last_layer_index]; i++) {
     double from_activ_func_deriv = activ_func_deriv(inv_activ_func(last_activs(i)));
     error_vec(i) = avg_cost_grad(i) * from_activ_func_deriv;
-    //std::cout << "Node " << i << " has error " << error_vec(i) << "\n";
   }
-  //std::cout << "Layer " << NUM_LAYERS << " found to have error vec: " << error_vec << "\n";
   // Start saving errors for updating later
-  // (only 4 vecs needed since no weights on input layer)
   vec errors[NUM_LAYERS - 1];
   errors[last_layer_index - 1] = error_vec;
 
@@ -405,7 +398,7 @@ void DNN::train_network(xt::xtensor<vec,1> images_in, vec labels_in) {
   int max_iters = images_in.size();//1000
   for (int test_num = 0; test_num < max_iters; test_num++) {
     // If new epoch is reach, save data
-    if ( ((test_num + 1) % EPOCH) == 0 ) { save_data(); }
+    if ( ((test_num + 1) % SAVE_NUM) == 0 ) { save_data(); }
     // Then calculate as usual
     forward_propagate(images_in(test_num));
     // Make answer vector from label
@@ -418,7 +411,7 @@ void DNN::train_network(xt::xtensor<vec,1> images_in, vec labels_in) {
     cost_grad = compute_cost_gradient(answer) + cost_grad;//vadd(cost_grad,compute_cost_gradient(answer));
     if ( analyze_output(answer) ) { num_correct++; }
     // Print guess and answer to terminal every now and again
-    if ( (test_num + 1) % 100 == 0 ) {
+    if ( (test_num + 1) % 999 == 0 ) {
       std::cout << "\nOn test " << test_num + 1 << "/" << max_iters << " ..." << std::endl
                 << "guess = " << get_activations(NUM_LAYERS-1) << std::endl
                 << "answer = " << answer << std::endl;
@@ -456,23 +449,4 @@ void DNN::print_all_weights() {
       std::cout << "] with bias = " << biases(r_node) << "\n";
     }
   }
-}
-
-
-// Test of forward propogate
-void DNN::compute_forward() {
-  //read_input();
-  std::cout << "\n----- forward propagating -----\n";
-  vec attempt = xt::empty<double>({LAYER_SIZES[0]});
-  attempt.fill(0.5);
-  forward_propagate(attempt);
-  std::cout << "Output is " << get_activations(NUM_LAYERS - 1) << "\n";
-}
-
-
-// Test of backpropagate
-void DNN::compute_backward() {
-  vec answers = {0., 1.};
-  std::cout << "\n----- backpropagating -----\n";
-  backpropagate(answers);
 }
