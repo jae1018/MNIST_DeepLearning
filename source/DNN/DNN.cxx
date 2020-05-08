@@ -107,6 +107,18 @@ vec DNN::compute_cost_gradient(vec& answers) {
 }
 
 
+// Computes the dot product of two vectors
+// (Was originally in the header but moved it here to parallelize it)
+double DNN::vdot(vec& vec_one, vec& vec_two) {
+  double val = 0;
+  assert(vec_one.size() == vec_two.size());
+  #pragma omp parallel for reduction(+: val)
+  for (int i = 0; i < vec_one.size(); i++) {
+    val += vec_one(i) * vec_two(i);
+  }
+  return val;
+}
+
 
 // Save all weight and bias data to files
 void DNN::save_data() {
@@ -232,6 +244,7 @@ void DNN::set_weights(int layer_num, arr& weights_in) {
   double cols = ((all_weights[layer_num - 1]).shape())[1];
   assert(  rows == (weights_in.shape())[0]  );
   assert(  cols == (weights_in.shape())[1]  );
+  #pragma omp parallel for
   for (int i = 0; i < rows; i++) {
     for (int a = 0; a < cols; a++) {
       (all_weights[layer_num - 1])(i,a) = weights_in(i,a);
@@ -251,6 +264,7 @@ vec& DNN::get_biases(int layer_num) {
 // Note that all_biases[0] --> Layer 2 biases and ..[1] --> Layer 3 biases, etc.
 void DNN::set_biases(int layer_num, vec& biases_in) {
   assert( (all_biases[layer_num - 1]).size() == biases_in.size() );
+  #pragma omp parallel for
   for (int i = 0; i < biases_in.size(); i++) {
     (all_biases[layer_num - 1])(i) = biases_in(i);
   }
@@ -267,6 +281,7 @@ vec& DNN::get_activations(int layer_num) {
 // Sets the activations of the designated layer to the vec provided
 void DNN::set_activations(int layer_num, vec& activ_in) {
   assert( LAYER_SIZES[layer_num] == activ_in.size() );
+  #pragma omp parallel for
   for (int i = 0; i < activ_in.size(); i++) {
     (all_activations[layer_num])(i) = activ_in(i);
   }
@@ -322,11 +337,10 @@ void DNN::forward_propagate(vec& input) {
 void DNN::backpropagate(vec& avg_cost_grad) {
 
   // Compute error of final layer
-  //std::cout << "*** Computing error for last layer ***\n";
-  //std::cout << "From answers = " << answers << " errors are determined\n";
   int last_layer_index = NUM_LAYERS - 1;
   vec last_activs = get_activations(last_layer_index);
   vec error_vec = xt::zeros<double>({LAYER_SIZES[last_layer_index]});
+  #pragma omp parallel for
   for (int i = 0; i < LAYER_SIZES[last_layer_index]; i++) {
     double from_activ_func_deriv = activ_func_deriv(inv_activ_func(last_activs(i)));
     error_vec(i) = avg_cost_grad(i) * from_activ_func_deriv;
@@ -365,18 +379,12 @@ void DNN::backpropagate(vec& avg_cost_grad) {
     vec prev_layer_activs = get_activations(i - 1);
     vec errors_for_layer = errors[i - 1]; // --> means errors for layer i
     // ... and across each receiving node ...
+    #pragma omp parallel for
     for (int recv = 0; recv < get_num_recv_nodes(old_weights); recv++) {
       // ... update the weights for each connection
       for (int send = 0; send < get_num_send_nodes(old_weights); send++) {
         double change = LEARNING_RATE * errors_for_layer(recv) * prev_layer_activs(send);
         new_weights(send,recv) = old_weights(send,recv) - change;
-        //if (i == 3) { std::cout << send << " -> " << recv << " modded by " << change << "\n"; }
-        /**if ( (i==4) and (send==0) ) {
-           std::cout << "for final node " << recv << " weight mod = " << change << "\n"
-               << " learn_rate = " << LEARNING_RATE << " error = "
-               << errors_for_layer(recv) << " prev_activ = "
-               << prev_layer_activs(send) << "\n";
-        }*/
       }
       // ... and update the bias for each receiving node
       new_biases(recv) = old_biases(recv) - LEARNING_RATE * errors_for_layer(recv);
@@ -397,18 +405,19 @@ void DNN::train_network(xt::xtensor<vec,1> images_in, vec labels_in) {
 
   int max_iters = images_in.size();//1000
   for (int test_num = 0; test_num < max_iters; test_num++) {
-    // If new epoch is reach, save data
+    // Save data every specified SAVE_NUM number of tests
     if ( ((test_num + 1) % SAVE_NUM) == 0 ) { save_data(); }
-    // Then calculate as usual
+
+    // Calculate forward prop
     forward_propagate(images_in(test_num));
-    // Make answer vector from label
+
+    // Make answer vector from label and compare to results from forward prop
     vec answer = xt::empty<double>({10});
-    // maybe try == 1 if bad, 0 if good?  <--- doesn't help...
     for (int q = 0; q < 10; q++) {
       answer(q) = (labels_in(test_num) == q) ? 1 : 0;  // if index == digit, then 1; else 0
     }
     // Keep adding cost gradients to take average before backprop
-    cost_grad = compute_cost_gradient(answer) + cost_grad;//vadd(cost_grad,compute_cost_gradient(answer));
+    cost_grad = compute_cost_gradient(answer) + cost_grad;
     if ( analyze_output(answer) ) { num_correct++; }
     // Print guess and answer to terminal every now and again
     if ( (test_num + 1) % 999 == 0 ) {
@@ -417,17 +426,12 @@ void DNN::train_network(xt::xtensor<vec,1> images_in, vec labels_in) {
                 << "answer = " << answer << std::endl;
       std::cout << "Accuracy (for this trial suite) = " << 100 * double(num_correct)/max_iters << std::endl;
     }
-//    std::this_thread::sleep_for (std::chrono::seconds(3));
-    // If mini_batch num tests performed, backprop the avg'd cost gradient
+
+    // If mini_batch num tests performed, backprop the avg cost gradient
     if ( (test_num + 1) % MINI_BATCH_SIZE == 0) {
       cost_grad = cost_grad / MINI_BATCH_SIZE;
-      //std::cout << "avg cost grad = " << cost_grad << std::endl;
       backpropagate(cost_grad);
     }
-    //for (int layer = 0; layer < NUM_LAYERS; layer++) {
-    //  std::cout << "For layer " << layer + 1 << " activs are:\n " << get_activations(layer) << "\n";
-    //            << " with avg val " << compute_avg(get_activations(layer)) << "\n";
-    //}
   }
 }
 

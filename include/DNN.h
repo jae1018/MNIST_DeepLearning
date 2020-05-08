@@ -26,17 +26,6 @@ using arr = xt::xtensor<double,2>;
 
 // --- LinAlg Definitions ---
 
-// Get multiple def error when including this header across multiple files and its due to this...
-// can make it inline possibly to avoid that?
-inline double vdot(vec& vec_one, vec& vec_two) {
-  double val = 0;
-  assert(vec_one.size() == vec_two.size());
-  for (int i = 0; i < vec_one.size(); i++) {
-    val += vec_one(i) * vec_two(i);
-  }
-  return val;
-}
-
 
 // Computes avg of xtensor
 inline double compute_avg(vec& input_vec) {
@@ -76,8 +65,6 @@ inline vec make_double_vector(std::vector<uint8_t> vector_in) {
   for (int i = 0; i < vector_in.size(); i++) {
     out_vector(i) = double( vector_in[i] );
   }
-  // 0 produced 7
-  std::cout << " orig val " << int(vector_in[1]) << " became " << out_vector(1) << "\n";
   return out_vector;
 }
 
@@ -115,10 +102,11 @@ class DNN {
     const int NUM_LAYERS = 4;
     // found intersting rule-of-thumb formula for determining num of hidden nodes:
     // num_hidden = sample_size/(a*(num_input + num_output)), 2 <= a <= 10
-    const int LAYER_SIZES[5] = {784, 20, 15, 10};
+    const int LAYER_SIZES[4] = {784, 20, 15, 10};
+    //const int LAYER_SIZES[4] = {3, 2, 2, 2};
     const double LEARNING_RATE = 1.0;
     const double TOLERANCE = 0.1;
-    const int SAVE_NUM = 1000;  // <-- after this many tests, saved weight and bias data to files
+    const int SAVE_NUM = 10000;  // <-- after this many tests, saved weight and bias data to files
     const int MINI_BATCH_SIZE = 30;
     arr all_weights[4]; // dimens = num_layers - 1
     vec all_biases[4];  // dimens = num_layers - 1
@@ -130,6 +118,7 @@ class DNN {
     double cost_func(double guess, double answer);
     double cost_func_deriv(double guess, double answer);
     vec compute_cost_gradient(vec& answer);
+    double vdot(vec& vec1, vec& vec2);
     void save_data();
     void initialize_weights(arr& weights);
     void initialize_biases(vec& biases);

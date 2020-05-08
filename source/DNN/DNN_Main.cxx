@@ -54,6 +54,7 @@ int main() {
 
   int num_epochs = 10;
   for (int i = 0; i < num_epochs; i++) {
+    std::cout << " ----- ENTERED EPOCH " << i+1 << " -----" << std::endl;
     node_man.train_network(images_copy,labels_copy);
   }
 

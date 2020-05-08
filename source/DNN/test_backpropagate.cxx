@@ -46,11 +46,11 @@ TEST(BackPropTest, UniformWeightsAndBiases_UniformInput) {
   network_test.forward_propagate(input);
   vec last_activs = network_test.get_activations(num_layers - 1);
   vec last_activs_deriv = last_activs * (1 - last_activs);
-  std::cout << "output = " << last_activs << "\n";
+  //std::cout << "output = " << last_activs << "\n";
   vec test_output = {0.0, 1.0};
   vec cost_gradient = last_activs - test_output;
-  std::cout << "cost grad expected = " << cost_gradient << "\n";
-  std::cout << "final layer error expected = " << last_activs_deriv * cost_gradient << "\n";
+  //std::cout << "cost grad expected = " << cost_gradient << "\n";
+  //std::cout << "final layer error expected = " << last_activs_deriv * cost_gradient << "\n";
   network_test.backpropagate(cost_gradient);
 
   // Create predictions
@@ -72,9 +72,9 @@ TEST(BackPropTest, UniformWeightsAndBiases_UniformInput) {
   for (int i = num_layers - 1; i > 0; i--) {
     arr computed_weights = network_test.get_weights(i);
     arr correct_weights = all_correct_weights[i - 1];
-    std::cout << "For layer " << i + 1 << "...\n"
-              << "correct weights " << correct_weights << "\n"
-              << "calculated weights " << computed_weights << "\n";
+    //std::cout << "For layer " << i + 1 << "...\n"
+    //          << "correct weights " << correct_weights << "\n"
+    //          << "calculated weights " << computed_weights << "\n";
     ASSERT_TRUE( arrs_equal(computed_weights, correct_weights, tol) );
     /**vec computed_biases = network_test.get_biases(i);
     vec correct_biases = all_correct_biases[i - 1];
